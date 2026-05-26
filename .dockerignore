@@ -1,0 +1,12 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+backend/.env
+data/app.db
+backend/data/app.db
+data/uploads
+*.log

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Data Analyst Assistant Dashboard</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  </head>
+  <body>
+    <header class="top-bar">
+      <div>
+        <h1>AI Data Analyst Assistant</h1>
+        <p>Interactive dashboard for sales KPIs and visual analytics.</p>
+      </div>
+      <div class="header-actions">
+        <button id="themeToggle" class="theme-btn" title="Toggle dark/light mode">🌙</button>
+        <button id="refreshButton">Refresh Data</button>
+        <button id="clearButton" class="clear-btn">Clear All</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="controls-grid">
+        <div class="control-card">
+          <div class="control-card-header">
+            <h2>Upload Sales Data</h2>
+            <p>Upload CSV or XLSX files to populate the dashboard with your latest sales dataset.</p>
+          </div>
+          <div class="file-upload-row">
+            <label for="dataFileInput" class="file-select-btn">Choose file</label>
+            <span id="selectedFileName" class="file-name">No file chosen</span>
+          </div>
+          <input type="file" id="dataFileInput" accept=".csv,.xlsx" title="Upload CSV or XLSX files" class="file-input" />
+          <div class="upload-actions">
+            <button id="uploadButton">Upload</button>
+            <button id="checkFileQualityButton" class="secondary-btn">Check Data Quality</button>
+          </div>
+          <div id="uploadStatus" class="status-text">No file uploaded yet.</div>
+          <div id="fileCheckResult" class="analysis-result">Upload a file and click the quality check button to inspect data quality.</div>
+        </div>
+      </section>
+
+      <section class="controls-grid">
+        <div class="control-card">
+          <div class="control-card-header">
+            <h2>Analyze Your Data</h2>
+            <p>Generate an automatic overview of the uploaded dataset.</p>
+          </div>
+          <div class="analysis-mode-switch" role="group" aria-label="Analyze result mode">
+            <button id="analysisOverviewMode" class="mode-btn active" type="button">Overview</button>
+            <button id="analysisTableMode" class="mode-btn" type="button">Overview Table</button>
+          </div>
+          <button id="askButton">Analyze</button>
+          <div id="analysisResult" class="analysis-result">Upload a dataset and click Analyze.</div>
+          <div id="analysisTablePanel" class="analysis-table-panel" hidden>
+            <div id="analysisTable"></div>
+          </div>
+        </div>
+        <div class="control-card">
+          <div class="control-card-header">
+            <h2>LLM Assistant</h2>
+            <p>Send prompts, generate SQL, and ask for insights with the free local model.</p>
+          </div>
+          <textarea id="llmPromptInput" placeholder="e.g. Which region has the highest revenue and why?" rows="4"></textarea>
+          <div class="upload-actions">
+            <button id="llmSendButton">Send Prompt</button>
+            <button id="llmSqlButton" class="secondary-btn">Generate SQL</button>
+            <button id="llmInsightsButton" class="secondary-btn">Generate Insights</button>
+          </div>
+          <div id="llmResponseResult" class="analysis-result">Upload data, then send a prompt or generate insights.</div>
+        </div>
+      </section>
+
+      <section class="kpi-grid" aria-label="Sales KPI cards">
+        <article class="kpi-card" id="profitCard">
+          <span class="kpi-label">Columns</span>
+          <strong class="kpi-value">0</strong>
+          <small class="kpi-detail">Fields available for analysis</small>
+        </article>
+        <article class="kpi-card" id="ordersCard">
+          <span class="kpi-label">Numeric Fields</span>
+          <strong class="kpi-value">0</strong>
+          <small class="kpi-detail">Numeric columns available</small>
+        </article>
+        <article class="kpi-card" id="growthCard">
+          <span class="kpi-label">Total Profit</span>
+          <strong class="kpi-value">0</strong>
+          <small class="kpi-detail">Sum of all numeric values</small>
+        </article>
+      </section>
+
+      <section class="chart-panel">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h2>Visualization Chart</h2>
+            <p>Select chart type and axes to visualize your data.</p>
+          </div>
+          <div class="chart-controls">
+            <div class="control-group">
+              <label for="chartTypeSelect">Chart Type</label>
+              <select id="chartTypeSelect">
+                <option value="bar">Bar Chart</option>
+                <option value="line">Line Chart</option>
+                <option value="area">Area Chart</option>
+                <option value="scatter">Scatter Plot</option>
+                <option value="pie">Pie Chart</option>
+                <option value="doughnut">Doughnut Chart</option>
+                <option value="polarArea">Polar Area Chart</option>
+                <option value="radar">Radar Chart</option>
+                <option value="waterfall">Waterfall Chart</option>
+                <option value="waffle">Waffle Chart</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="xAxisSelect">X-Axis</label>
+              <select id="xAxisSelect">
+                <option value="">Select column...</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <label for="yAxisSelect">Y-Axis</label>
+              <select id="yAxisSelect">
+                <option value="">Select column...</option>
+              </select>
+            </div>
+            <button id="generateChartBtn">Generate Chart</button>
+          </div>
+          <canvas id="dynamicChart"></canvas>
+          <div id="waffleChartContainer" class="waffle-chart-container" hidden></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/app.js?v=overview-table-analyze-1"></script>
+  </body>
+</html>

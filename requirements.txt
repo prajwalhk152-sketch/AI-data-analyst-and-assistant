@@ -1,0 +1,9 @@
+flask
+flask-cors
+pandas
+openpyxl
+sqlalchemy
+python-dotenv
+gunicorn
+streamlit
+werkzeug
