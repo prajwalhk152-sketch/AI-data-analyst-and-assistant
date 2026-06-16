@@ -9,4 +9,5 @@ backend/.env
 data/app.db
 backend/data/app.db
 data/uploads
+backend/*.csv
 *.log

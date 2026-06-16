@@ -1,6 +1,8 @@
+import pandas as pd
+import re
+
 from services.db_service import TABLE_NAME, engine
 from services.state import get_current_data
-import pandas as pd
 
 # Load spaCy model once
 try:
@@ -27,21 +29,92 @@ def answer_with_spacy(question, df):
                 return f"Column '{col}' has {unique_vals} unique values."
     return None
 
+def _normalize_text(value):
+    return re.sub(r"[^a-z0-9]+", " ", str(value).lower()).strip()
+
+
+def _find_column(question, df, numeric_only=False):
+    normalized_question = _normalize_text(question)
+    candidates = df.select_dtypes(include="number").columns if numeric_only else df.columns
+
+    matches = []
+    for col in candidates:
+        normalized_col = _normalize_text(col)
+        compact_col = normalized_col.replace(" ", "")
+        compact_question = normalized_question.replace(" ", "")
+        if normalized_col and (normalized_col in normalized_question or compact_col in compact_question):
+            matches.append((len(normalized_col), col))
+
+    if matches:
+        return sorted(matches, reverse=True)[0][1]
+    return None
+
+
+def _format_number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    if number.is_integer():
+        return f"{number:,.0f}"
+    return f"{number:,.2f}"
+
+
+def _format_series_items(series, label_name, value_name):
+    return "\n".join(
+        f"- {label_name}: {label} | {value_name}: {_format_number(value)}"
+        for label, value in series.items()
+    )
+
+
 def analyze_dataset_question(question):
     df = get_current_data()
     if df is None or df.empty:
         return "No dataset loaded. Please upload a file first."
 
     q = question.lower()
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+    text_cols = [col for col in df.columns if col not in numeric_cols]
+
     if "column" in q or "feature" in q or "field" in q:
         return f"The dataset has {len(df.columns)} columns: {', '.join(df.columns)}."
     if "row" in q and ("how many" in q or "count" in q or "number" in q):
         return f"The dataset contains {len(df)} rows."
+    if "shape" in q or "size" in q:
+        return f"The dataset shape is {len(df):,} rows by {len(df.columns):,} columns."
+    if "missing" in q or "null" in q or "blank" in q:
+        missing = df.isnull().sum()
+        missing = missing[missing > 0].sort_values(ascending=False)
+        if missing.empty:
+            return "No missing values were found in the active dataset."
+        return "Missing values by column:\n" + _format_series_items(missing, "Column", "Missing")
+    if "duplicate" in q:
+        return f"The dataset has {int(df.duplicated().sum()):,} duplicate row(s)."
     if "unique" in q or "distinct" in q:
-        for col in df.columns:
-            if col.lower() in q:
-                unique_vals = df[col].nunique()
-                return f"The column '{col}' has {unique_vals} unique values."
+        col = _find_column(question, df)
+        if col:
+            unique_vals = df[col].nunique(dropna=True)
+            return f"The column '{col}' has {unique_vals:,} unique value(s)."
+        unique_counts = df.nunique(dropna=True).sort_values(ascending=False).head(10)
+        return "Unique values by column:\n" + _format_series_items(unique_counts, "Column", "Unique")
+
+    if any(word in q for word in ["top", "highest", "largest", "best", "lowest", "smallest", "bottom"]):
+        numeric_col = _find_column(question, df, numeric_only=True)
+        category_col = _find_column(question, df.drop(columns=[numeric_col], errors="ignore")) if numeric_col else None
+        if numeric_col and category_col:
+            grouped = df.groupby(category_col, dropna=False)[numeric_col].sum().sort_values(ascending=False)
+            if any(word in q for word in ["lowest", "smallest", "bottom"]):
+                grouped = grouped.sort_values(ascending=True)
+            top_n = min(10, max(1, int(re.search(r"\btop\s+(\d+)", q).group(1)) if re.search(r"\btop\s+(\d+)", q) else 5))
+            return (
+                f"Top {top_n} '{category_col}' values by total '{numeric_col}':\n"
+                + _format_series_items(grouped.head(top_n), category_col, numeric_col)
+            )
+        col = _find_column(question, df)
+        if col:
+            counts = df[col].astype(str).value_counts().head(10)
+            return f"Most common values in '{col}':\n" + _format_series_items(counts, col, "Count")
 
     # Try spaCy for simple Q&A
     spacy_answer = answer_with_spacy(question, df)
@@ -50,16 +123,27 @@ def analyze_dataset_question(question):
 
     # Try pandas for simple aggregations
     # Example: "average sales", "sum of profit", "max revenue"
-    agg_map = {"average": "mean", "mean": "mean", "sum": "sum", "total": "sum", "max": "max", "min": "min"}
+    agg_map = {
+        "average": "mean",
+        "avg": "mean",
+        "mean": "mean",
+        "sum": "sum",
+        "total": "sum",
+        "maximum": "max",
+        "max": "max",
+        "minimum": "min",
+        "min": "min",
+        "count": "count",
+    }
     for word, func in agg_map.items():
         if word in q:
-            for col in df.columns:
-                if col.lower() in q and pd.api.types.is_numeric_dtype(df[col]):
-                    val = getattr(df[col], func)()
-                    return f"The {word} of '{col}' is {val:.2f}."
+            col = _find_column(question, df, numeric_only=func not in ["count"])
+            if col:
+                val = getattr(df[col], func)()
+                return f"The {word} of '{col}' is {_format_number(val)}."
 
     return (
-        "No answer could be generated for your question. Try rephrasing or ask about columns, row counts, or simple aggregations."
+        "I could not answer that yet. Try asking about rows, columns, missing values, duplicates, unique values, totals, averages, min/max, or top categories by a numeric column."
     )
 
 def get_analysis_dataframe():
